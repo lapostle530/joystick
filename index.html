@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0c0d">
+  <title>Frame Lab — Gamepad Photo Filters</title>
+  <style>
+    :root {
+      --ink: #f4f1e9;
+      --muted: #999a94;
+      --dim: #666862;
+      --page: #0b0c0d;
+      --panel: #141617;
+      --panel-2: #1a1c1d;
+      --line: #2b2e2f;
+      --accent: #ffb65b;
+      --accent-bright: #ffd29b;
+      --danger: #ff755f;
+      --success: #8ed19b;
+      --radius: 18px;
+      --focus-shadow: 0 0 0 3px #0b0c0d, 0 0 0 6px var(--accent), 0 0 28px rgba(255, 182, 91, .38);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { color-scheme: dark; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 72% 16%, rgba(255, 182, 91, .075), transparent 28rem),
+        linear-gradient(180deg, #101112 0, var(--page) 44%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+
+    button, .upload-button, input[type="range"] {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, .upload-button {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: var(--panel-2);
+      cursor: pointer;
+    }
+
+    button:focus-visible, .upload-button:focus-visible, input[type="range"]:focus-visible {
+      outline: none !important;
+      border-color: var(--accent) !important;
+      box-shadow: var(--focus-shadow) !important;
+      position: relative;
+      z-index: 4;
+    }
+
+    button:disabled {
+      opacity: .38;
+      cursor: not-allowed;
+      box-shadow: none !important;
+      border-color: var(--line) !important;
+    }
+
+    .shell {
+      width: min(1540px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 24px clamp(18px, 3vw, 48px) 122px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 54px;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid #3c3f3d;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, #111 0 24%, #5e4931 26% 31%, #131415 33% 48%, #2c2e2d 50% 56%, #121314 58%);
+      box-shadow: inset 0 0 0 5px #191b1b;
+    }
+
+    .brand-copy strong {
+      display: block;
+      letter-spacing: -.04em;
+      font-size: 21px;
+      line-height: 1;
+    }
+
+    .brand-copy span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    .gamepad-status {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 170px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(20, 22, 23, .82);
+      font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--dim);
+      box-shadow: 0 0 0 4px rgba(102, 104, 98, .13);
+    }
+
+    .gamepad-status.connected { color: var(--success); }
+    .gamepad-status.connected .status-dot {
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(142, 209, 155, .13), 0 0 14px rgba(142, 209, 155, .5);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 350px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .stage-panel, .control-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(20, 22, 23, .92);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .3);
+      backdrop-filter: blur(18px);
+    }
+
+    .stage-panel { padding: clamp(14px, 2vw, 24px); }
+
+    .stage-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .live-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .live-chip::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--dim);
+    }
+
+    .live-chip.on { color: var(--danger); }
+    .live-chip.on::before {
+      background: var(--danger);
+      box-shadow: 0 0 12px rgba(255, 117, 95, .7);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse { 50% { opacity: .35; } }
+
+    .canvas-wrap {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      min-height: clamp(320px, 59vw, 720px);
+      border: 1px solid #26292a;
+      border-radius: 12px;
+      background:
+        linear-gradient(45deg, #111314 25%, transparent 25% 75%, #111314 75%),
+        linear-gradient(45deg, #111314 25%, #17191a 25% 75%, #111314 75%);
+      background-position: 0 0, 10px 10px;
+      background-size: 20px 20px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-height: 720px;
+      object-fit: contain;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      padding: 32px;
+      text-align: center;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 42%, rgba(255, 182, 91, .07), transparent 13rem);
+      transition: opacity .25s ease;
+    }
+
+    .empty-state.hidden { opacity: 0; }
+
+    .aperture {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 20px;
+      border: 1px solid #3e403f;
+      border-radius: 50%;
+      background:
+        conic-gradient(from 15deg, #272929 0 14%, #151617 14% 28%, #2a2c2c 28% 42%, #151617 42% 56%, #292b2b 56% 70%, #151617 70% 84%, #2a2c2c 84%);
+      box-shadow: inset 0 0 0 18px #111213, 0 0 40px rgba(255, 182, 91, .08);
+    }
+
+    .empty-state h1 {
+      max-width: 520px;
+      margin: 0;
+      font-size: clamp(30px, 5vw, 60px);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+
+    .empty-state p {
+      max-width: 420px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .stage-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 14px;
+      color: var(--muted);
+      font: 650 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .stage-footer b { color: var(--ink); font-weight: 700; }
+
+    .control-panel {
+      overflow: hidden;
+      position: sticky;
+      top: 20px;
+    }
+
+    .control-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 19px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font: 800 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .step-count {
+      color: var(--dim);
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .control-group {
+      padding: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .control-group:last-child { border-bottom: 0; }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 13px;
+      color: var(--muted);
+      font: 800 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .section-label::before {
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border: 1px solid #363938;
+      border-radius: 50%;
+      color: var(--ink);
+      font-size: 9px;
+    }
+
+    .source-label::before { content: "01"; }
+    .filter-label::before { content: "02"; }
+    .tune-label::before { content: "03"; }
+    .export-label::before { content: "04"; }
+
+    .source-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .action, .upload-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 50px;
+      padding: 11px 12px;
+      border-radius: 11px;
+      font-weight: 780;
+      font-size: 12px;
+      letter-spacing: -.01em;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .action:hover, .upload-button:hover { background: #222526; transform: translateY(-1px); }
+    .action:active, .upload-button:active { transform: translateY(1px); }
+
+    .action.primary {
+      grid-column: 1 / -1;
+      color: #18120b;
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .action.primary:hover { background: var(--accent-bright); }
+
+    .button-icon {
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    #fileInput { display: none; }
+
+    .filters {
+      display: grid;
+      gap: 8px;
+    }
+
+    .filter {
+      position: relative;
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      min-height: 54px;
+      padding: 8px 12px 8px 8px;
+      border-radius: 11px;
+      text-align: left;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .filter:hover { transform: translateX(2px); background: #202324; }
+
+    .filter.active {
+      border-color: rgba(255, 182, 91, .65);
+      background: #211d18;
+    }
+
+    .filter.active::after {
+      content: attr(data-state);
+      color: var(--accent);
+      font: 800 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .1em;
+    }
+
+    .filter.controller-current:not(.active) {
+      border-color: #72756f;
+      box-shadow: inset 0 0 0 1px #72756f;
+      background: #1d2020;
+    }
+
+    .swatch {
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      background: var(--swatch);
+    }
+
+    .filter strong {
+      display: block;
+      font-size: 12px;
+      letter-spacing: -.01em;
+    }
+
+    .filter small {
+      display: block;
+      overflow: hidden;
+      margin-top: 4px;
+      color: var(--muted);
+      font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 15px;
+    }
+
+    .slider-head strong {
+      font-size: 13px;
+      letter-spacing: -.01em;
+    }
+
+    .slider-value {
+      color: var(--accent);
+      font: 800 22px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: -.04em;
+    }
+
+    .range-wrap {
+      position: relative;
+      padding: 8px 4px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 22px;
+      margin: 0;
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      cursor: ew-resize;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(to right, var(--accent) 0 var(--fill, 72%), #303334 var(--fill, 72%) 100%);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      width: 22px;
+      height: 22px;
+      margin-top: -8px;
+      appearance: none;
+      border: 4px solid var(--accent);
+      border-radius: 50%;
+      background: #121415;
+      box-shadow: 0 0 0 3px rgba(255, 182, 91, .14);
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #303334;
+    }
+
+    input[type="range"]::-moz-range-progress {
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border: 4px solid var(--accent);
+      border-radius: 50%;
+      background: #121415;
+    }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      color: var(--dim);
+      font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .1em;
+    }
+
+    .download-action {
+      position: relative;
+      width: 100%;
+      min-height: 64px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 820;
+      letter-spacing: -.01em;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .download-action:hover {
+      background: #222526;
+      transform: translateY(-1px);
+    }
+
+    .download-action.controller-selected {
+      color: #18120b;
+      border-color: var(--accent);
+      background: var(--accent);
+      box-shadow: var(--focus-shadow);
+    }
+
+    .download-hint {
+      margin: 11px 0 0;
+      color: var(--muted);
+      font: 650 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .04em;
+    }
+
+    .joystick-guide {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      max-width: calc(100vw - 36px);
+      padding: 12px 15px;
+      border: 1px solid #393b3b;
+      border-radius: 13px;
+      background: rgba(18, 20, 20, .94);
+      box-shadow: 0 14px 40px rgba(0,0,0,.5);
+      backdrop-filter: blur(14px);
+    }
+
+    .stick-symbol {
+      display: grid;
+      place-items: center;
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid #424544;
+      border-radius: 50%;
+      color: var(--accent);
+      background: #0e0f10;
+      font-size: 18px;
+    }
+
+    .guide-copy {
+      color: var(--muted);
+      font: 650 10px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .guide-copy b { color: var(--ink); }
+    .key {
+      display: inline-grid;
+      place-items: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border: 1px solid #454847;
+      border-radius: 5px;
+      color: var(--ink);
+      background: #242626;
+      font-size: 9px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      z-index: 30;
+      max-width: calc(100vw - 40px);
+      padding: 11px 16px;
+      border: 1px solid #3a3d3c;
+      border-radius: 999px;
+      color: var(--ink);
+      background: #1b1e1e;
+      box-shadow: 0 12px 30px rgba(0,0,0,.4);
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 12px);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .control-panel { position: static; }
+      .control-panel { display: grid; grid-template-columns: 1fr 1fr; }
+      .control-head { grid-column: 1 / -1; }
+      .control-group:nth-child(3) { border-right: 0; }
+      .control-group { border-right: 1px solid var(--line); }
+      .control-group:last-child { grid-column: auto; border-right: 0; }
+      .canvas-wrap { min-height: 48vw; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { padding: 16px 12px 138px; }
+      .topbar { margin-bottom: 14px; }
+      .brand-copy span { display: none; }
+      .gamepad-status { min-width: auto; }
+      .gamepad-status span:last-child { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .stage-panel { padding: 10px; border-radius: 14px; }
+      .canvas-wrap { min-height: 58vw; }
+      .empty-state h1 { font-size: 34px; }
+      .empty-state p { font-size: 12px; }
+      .aperture { width: 54px; height: 54px; margin-bottom: 14px; }
+      .stage-footer { flex-direction: column; gap: 5px; }
+      .control-panel { display: block; border-radius: 14px; }
+      .control-group { border-right: 0; }
+      .source-grid { grid-template-columns: 1fr; }
+      .action.primary { grid-column: auto; }
+      .joystick-guide { right: 12px; bottom: 12px; left: 12px; justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Frame Lab">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-copy">
+          <strong>Frame Lab</strong>
+          <span>Gamepad photo studio</span>
+        </div>
+      </div>
+      <div class="gamepad-status" id="gamepadStatus" role="status" aria-live="polite">
+        <span class="status-dot"></span>
+        <span>No gamepad detected</span>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <section class="stage-panel" aria-label="Photo preview">
+        <div class="stage-meta">
+          <span id="sourceName">No source / 00:00:00</span>
+          <span class="live-chip" id="liveChip">Standby</span>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="photoCanvas" width="1280" height="853" aria-label="Filtered photo preview"></canvas>
+          <div class="empty-state" id="emptyState">
+            <div class="aperture" aria-hidden="true"></div>
+            <h1>Your frame starts here.</h1>
+            <p>Start the camera or choose a photograph. Then shape the image with one of five tactile camera profiles.</p>
+          </div>
+        </div>
+        <div class="stage-footer">
+          <span>PROFILE <b id="activeProfileText">CANON DSLR</b></span>
+          <span>OUTPUT <b id="outputSize">1280 × 853</b></span>
+        </div>
+      </section>
+
+      <aside class="control-panel" aria-label="Studio controls">
+        <div class="control-head">
+          <span class="eyebrow">Creative controls</span>
+          <span class="step-count">01—04</span>
+        </div>
+
+        <section class="control-group">
+          <h2 class="section-label source-label">Image source</h2>
+          <div class="source-grid">
+            <button class="action primary navigable" id="startCamera" type="button" data-control-name="Start Webcam">
+              <span class="button-icon" aria-hidden="true">●</span>
+              <span>Start webcam</span>
+            </button>
+            <button class="action navigable" id="capturePhoto" type="button" data-control-name="Capture Photo" disabled>
+              <span class="button-icon" aria-hidden="true">◉</span>
+              <span>Capture</span>
+            </button>
+            <label class="upload-button navigable" id="uploadButton" for="fileInput" role="button" tabindex="0" data-control-name="Choose File">
+              <span class="button-icon" aria-hidden="true">↥</span>
+              <span>Choose file</span>
+            </label>
+            <input id="fileInput" type="file" accept="image/*" aria-label="Choose an image file">
+          </div>
+        </section>
+
+        <section class="control-group">
+          <h2 class="section-label filter-label">Camera profile</h2>
+          <div class="filters" role="group" aria-label="Filter presets">
+            <button class="filter active navigable" type="button" data-filter="canon" data-state="ACTIVE" data-control-name="Canon DSLR filter" aria-pressed="true">
+              <span class="swatch" style="--swatch:linear-gradient(135deg,#e06039,#f3b966 48%,#315a5c)"></span>
+              <span><strong>Canon DSLR</strong><small>Vivid · Warm · Punchy</small></span>
+            </button>
+            <button class="filter navigable" type="button" data-filter="sony" data-control-name="Sony Alpha filter" aria-pressed="false">
+              <span class="swatch" style="--swatch:linear-gradient(135deg,#324d68,#76a8ba 49%,#dde4df)"></span>
+              <span><strong>Sony Alpha</strong><small>Cool · Crisp · Clean</small></span>
+            </button>
+            <button class="filter navigable" type="button" data-filter="iphone" data-control-name="iPhone Vintage filter" aria-pressed="false">
+              <span class="swatch" style="--swatch:linear-gradient(135deg,#65455a,#cb7f83 48%,#e7b267)"></span>
+              <span><strong>iPhone Vintage</strong><small>Lifted · Rich · Faded</small></span>
+            </button>
+            <button class="filter navigable" type="button" data-filter="nokia" data-control-name="Nokia 3310 Early Cam filter" aria-pressed="false">
+              <span class="swatch" style="--swatch:linear-gradient(135deg,#153541,#3e8773 50%,#b4c56f)"></span>
+              <span><strong>Nokia 3310 / Early Cam</strong><small>Pixel · 16 Color · Lo-fi</small></span>
+            </button>
+            <button class="filter navigable" type="button" data-filter="kodak" data-control-name="Kodak Film filter" aria-pressed="false">
+              <span class="swatch" style="--swatch:linear-gradient(135deg,#523526,#c78137 48%,#f0c67f)"></span>
+              <span><strong>Kodak Film</strong><small>Golden · Grain · Soft</small></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="control-group">
+          <h2 class="section-label tune-label">Fine tune</h2>
+          <div class="slider-head">
+            <strong>Filter intensity</strong>
+            <output class="slider-value" id="intensityValue" for="intensity">72%</output>
+          </div>
+          <div class="range-wrap navigable" id="rangeFocus" data-control-name="Filter Intensity">
+            <input id="intensity" type="range" min="0" max="100" step="1" value="72" aria-label="Filter intensity">
+          </div>
+          <div class="scale"><span>RAW</span><span>BALANCED</span><span>FULL</span></div>
+        </section>
+
+        <section class="control-group" id="downloadSection">
+          <h2 class="section-label export-label">Final image</h2>
+          <button class="download-action" id="downloadImage" type="button">
+            <span class="button-icon" aria-hidden="true">↓</span>
+            <span>Download final image</span>
+          </button>
+          <p class="download-hint">Lock a filter with the left button, push down to Download, then press left again to save the PNG.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <div class="joystick-guide" aria-label="Joystick controls guide">
+    <div class="stick-symbol" aria-hidden="true">✣</div>
+    <div class="guide-copy">
+      <span class="key">L</span> start / lock / download · <span class="key">R</span> capture<br>
+      <b>↑ ↓</b> filters → download · <b>← →</b> intensity
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <video id="webcam" autoplay playsinline muted hidden></video>
+  <canvas id="sourceBuffer" hidden></canvas>
+  <canvas id="pixelBuffer" hidden></canvas>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("photoCanvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const sourceBuffer = document.getElementById("sourceBuffer");
+      const sourceCtx = sourceBuffer.getContext("2d", { willReadFrequently: true });
+      const pixelBuffer = document.getElementById("pixelBuffer");
+      const pixelCtx = pixelBuffer.getContext("2d", { willReadFrequently: true });
+      const webcam = document.getElementById("webcam");
+      const emptyState = document.getElementById("emptyState");
+      const startCameraButton = document.getElementById("startCamera");
+      const captureButton = document.getElementById("capturePhoto");
+      const uploadButton = document.getElementById("uploadButton");
+      const fileInput = document.getElementById("fileInput");
+      const intensity = document.getElementById("intensity");
+      const intensityValue = document.getElementById("intensityValue");
+      const rangeFocus = document.getElementById("rangeFocus");
+      const downloadButton = document.getElementById("downloadImage");
+      const profileText = document.getElementById("activeProfileText");
+      const sourceName = document.getElementById("sourceName");
+      const outputSize = document.getElementById("outputSize");
+      const liveChip = document.getElementById("liveChip");
+      const gamepadStatus = document.getElementById("gamepadStatus");
+      const toast = document.getElementById("toast");
+      const filterButtons = [...document.querySelectorAll(".filter")];
+      const profileNames = {
+        canon: "CANON DSLR",
+        sony: "SONY ALPHA",
+        iphone: "IPHONE VINTAGE",
+        nokia: "NOKIA 3310 / EARLY CAM",
+        kodak: "KODAK FILM"
+      };
+
+      let activeFilter = "canon";
+      let sourceImage = null;
+      let stream = null;
+      let isLive = false;
+      let renderQueued = false;
+      let lastNavAt = 0;
+      let toastTimer = 0;
+      let previousButtons = [];
+      let previousDirections = { up: false, down: false, left: false, right: false };
+      let connectedPadIndex = null;
+      let cameraStarted = false;
+      let cameraStartPending = false;
+      let verticalPosition = 0;
+      let filterLocked = false;
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+      }
+
+      function setCanvasSize(width, height) {
+        const maxDimension = 1600;
+        const scale = Math.min(1, maxDimension / Math.max(width, height));
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
+        sourceBuffer.width = canvas.width;
+        sourceBuffer.height = canvas.height;
+        outputSize.textContent = canvas.width + " × " + canvas.height;
+      }
+
+      function renderSourceToBuffer(source) {
+        const sw = source.videoWidth || source.naturalWidth || source.width;
+        const sh = source.videoHeight || source.naturalHeight || source.height;
+        if (!sw || !sh) return false;
+        const sourceRatio = sw / sh;
+        const canvasRatio = canvas.width / canvas.height;
+        let sx = 0, sy = 0, cropW = sw, cropH = sh;
+        if (sourceRatio > canvasRatio) {
+          cropW = sh * canvasRatio;
+          sx = (sw - cropW) / 2;
+        } else {
+          cropH = sw / canvasRatio;
+          sy = (sh - cropH) / 2;
+        }
+        sourceCtx.clearRect(0, 0, canvas.width, canvas.height);
+        sourceCtx.drawImage(source, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+        return true;
+      }
+
+      function clamp(value) {
+        return Math.max(0, Math.min(255, value));
+      }
+
+      function applyPixelProfile(data, profile, strength) {
+        const pixels = data.data;
+        const amount = strength / 100;
+        for (let i = 0; i < pixels.length; i += 4) {
+          const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+          let nr = r, ng = g, nb = b;
+          const luma = r * .299 + g * .587 + b * .114;
+
+          if (profile === "canon") {
+            nr = (r - 128) * 1.18 + 128 + 13;
+            ng = (g - 128) * 1.10 + 128 + 3;
+            nb = (b - 128) * 1.08 + 128 - 9;
+            const avg = (nr + ng + nb) / 3;
+            nr = avg + (nr - avg) * 1.18;
+            ng = avg + (ng - avg) * 1.18;
+            nb = avg + (nb - avg) * 1.18;
+          } else if (profile === "sony") {
+            nr = (r - 128) * 1.14 + 124;
+            ng = (g - 128) * 1.18 + 130;
+            nb = (b - 128) * 1.21 + 142;
+            nr += (r - luma) * .12;
+            ng += (g - luma) * .12;
+            nb += (b - luma) * .12;
+          } else if (profile === "iphone") {
+            nr = Math.max(18, r * 1.07 + 9);
+            ng = Math.max(16, g * 1.04 + 5);
+            nb = Math.max(22, b * 1.09 + 9);
+            const avg = (nr + ng + nb) / 3;
+            nr = avg + (nr - avg) * 1.34;
+            ng = avg + (ng - avg) * 1.34;
+            nb = avg + (nb - avg) * 1.34;
+          } else if (profile === "kodak") {
+            const grain = ((((i / 4) * 17 + ((i / 4) >>> 7) * 31) % 29) - 14) * .82;
+            nr = (r - 128) * 1.05 + 140 + grain;
+            ng = (g - 128) * 1.00 + 132 + grain * .74;
+            nb = (b - 128) * .93 + 112 + grain * .46;
+            nr = nr * .96 + luma * .04;
+            ng = ng * .96 + luma * .04;
+            nb = nb * .96 + luma * .04;
+          }
+
+          pixels[i] = clamp(r + (nr - r) * amount);
+          pixels[i + 1] = clamp(g + (ng - g) * amount);
+          pixels[i + 2] = clamp(b + (nb - b) * amount);
+        }
+      }
+
+      function renderNokia(strength) {
+        const amount = strength / 100;
+        const block = Math.max(2, Math.round(2 + amount * 11));
+        pixelBuffer.width = Math.max(1, Math.round(canvas.width / block));
+        pixelBuffer.height = Math.max(1, Math.round(canvas.height / block));
+        pixelCtx.imageSmoothingEnabled = true;
+        pixelCtx.drawImage(sourceBuffer, 0, 0, pixelBuffer.width, pixelBuffer.height);
+        const tiny = pixelCtx.getImageData(0, 0, pixelBuffer.width, pixelBuffer.height);
+        const p = tiny.data;
+        const steps = amount > .65 ? 4 : 6;
+        const step = 255 / (steps - 1);
+        for (let i = 0; i < p.length; i += 4) {
+          const r = p[i], g = p[i + 1], b = p[i + 2];
+          const tintR = r * .76 + g * .12;
+          const tintG = g * .83 + b * .09 + 8;
+          const tintB = b * .67 + g * .16 + 11;
+          p[i] = Math.round(tintR / step) * step;
+          p[i + 1] = Math.round(tintG / step) * step;
+          p[i + 2] = Math.round(tintB / step) * step;
+        }
+        pixelCtx.putImageData(tiny, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(sourceBuffer, 0, 0);
+        ctx.globalAlpha = amount;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(pixelBuffer, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+        ctx.imageSmoothingEnabled = true;
+      }
+
+      function renderFrame() {
+        renderQueued = false;
+        const source = isLive ? webcam : sourceImage;
+        if (!source || !renderSourceToBuffer(source)) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        const strength = Number(intensity.value);
+        if (activeFilter === "nokia") {
+          renderNokia(strength);
+        } else {
+          const imageData = sourceCtx.getImageData(0, 0, canvas.width, canvas.height);
+          applyPixelProfile(imageData, activeFilter, strength);
+          ctx.putImageData(imageData, 0, 0);
+        }
+      }
+
+      function queueRender() {
+        if (renderQueued) return;
+        renderQueued = true;
+        requestAnimationFrame(renderFrame);
+      }
+
+      function liveLoop() {
+        if (!isLive) return;
+        renderFrame();
+        requestAnimationFrame(liveLoop);
+      }
+
+      async function startCamera() {
+        if (cameraStartPending) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast("Camera access needs HTTPS or localhost.");
+          return;
+        }
+        cameraStartPending = true;
+        try {
+          if (stream) stream.getTracks().forEach(track => track.stop());
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: "user" },
+            audio: false
+          });
+          webcam.srcObject = stream;
+          await webcam.play();
+          setCanvasSize(webcam.videoWidth || 1280, webcam.videoHeight || 720);
+          isLive = true;
+          cameraStarted = true;
+          sourceImage = null;
+          emptyState.classList.add("hidden");
+          captureButton.disabled = false;
+          startCameraButton.querySelector("span:last-child").textContent = "Restart webcam";
+          sourceName.textContent = "LIVE CAMERA / " + new Date().toLocaleTimeString([], { hour12: false });
+          liveChip.textContent = "Live";
+          liveChip.classList.add("on");
+          liveLoop();
+          showToast("Camera is live.");
+        } catch (error) {
+          showToast(error && error.name === "NotAllowedError" ? "Camera permission was not granted." : "Could not start the camera.");
+        } finally {
+          cameraStartPending = false;
+        }
+      }
+
+      function capturePhoto() {
+        if (!isLive || !webcam.videoWidth) return;
+        renderSourceToBuffer(webcam);
+        const captured = new Image();
+        captured.onload = () => {
+          sourceImage = captured;
+          isLive = false;
+          liveChip.textContent = "Captured";
+          liveChip.classList.remove("on");
+          sourceName.textContent = "CAMERA CAPTURE / " + new Date().toLocaleTimeString([], { hour12: false });
+          captureButton.disabled = true;
+          queueRender();
+          showToast("Frame captured.");
+        };
+        captured.src = sourceBuffer.toDataURL("image/jpeg", .94);
+      }
+
+      function loadFile(file) {
+        if (!file || !file.type.startsWith("image/")) {
+          showToast("Choose a valid image file.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.onload = () => {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            stream = null;
+            isLive = false;
+            sourceImage = image;
+            setCanvasSize(image.naturalWidth, image.naturalHeight);
+            emptyState.classList.add("hidden");
+            captureButton.disabled = true;
+            liveChip.textContent = "Imported";
+            liveChip.classList.remove("on");
+            sourceName.textContent = file.name.toUpperCase().slice(0, 26) + " / " + new Date().toLocaleTimeString([], { hour12: false });
+            queueRender();
+            showToast("Image loaded.");
+          };
+          image.onerror = () => showToast("That image could not be read.");
+          image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function applyFilter(button) {
+        activeFilter = button.dataset.filter;
+        filterButtons.forEach(item => {
+          const selected = item === button;
+          item.classList.toggle("active", selected);
+          item.setAttribute("aria-pressed", String(selected));
+          item.dataset.state = selected ? (filterLocked ? "LOCKED" : "ACTIVE") : "";
+        });
+        profileText.textContent = profileNames[activeFilter];
+        queueRender();
+      }
+
+      function updateNavigationVisual() {
+        filterButtons.forEach(item => item.classList.remove("controller-current"));
+        downloadButton.classList.toggle("controller-selected", verticalPosition === filterButtons.length);
+        if (verticalPosition === filterButtons.length) {
+          downloadButton.setAttribute("aria-current", "true");
+        } else {
+          downloadButton.removeAttribute("aria-current");
+          filterButtons[verticalPosition].classList.add("controller-current");
+        }
+      }
+
+      function selectFilter(button) {
+        filterLocked = false;
+        verticalPosition = filterButtons.indexOf(button);
+        applyFilter(button);
+        updateNavigationVisual();
+      }
+
+      function lockCurrentFilter() {
+        if (verticalPosition >= filterButtons.length) return;
+        filterLocked = true;
+        const button = filterButtons[verticalPosition];
+        applyFilter(button);
+        updateNavigationVisual();
+        showToast(profileNames[activeFilter].replace(" / ", " · ") + " locked.");
+      }
+
+      function updateIntensity(value, announce) {
+        intensity.value = String(Math.max(0, Math.min(100, value)));
+        intensityValue.textContent = intensity.value + "%";
+        rangeFocus.style.setProperty("--fill", intensity.value + "%");
+        intensity.style.setProperty("--fill", intensity.value + "%");
+        queueRender();
+        if (announce) showToast("Intensity " + intensity.value + "%");
+      }
+
+      function moveVertical(direction) {
+        const nextPosition = Math.max(0, Math.min(filterButtons.length, verticalPosition + direction));
+        if (nextPosition === verticalPosition) return;
+        verticalPosition = nextPosition;
+        updateNavigationVisual();
+
+        if (verticalPosition === filterButtons.length) {
+          downloadButton.scrollIntoView({ behavior: "smooth", block: "center" });
+          showToast("Download selected — " + profileNames[activeFilter].replace(" / ", " · ") + " stays locked.");
+          return;
+        }
+
+        const button = filterButtons[verticalPosition];
+        if (!filterLocked) applyFilter(button);
+        button.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        showToast(filterLocked
+          ? "Cursor: " + profileNames[button.dataset.filter].replace(" / ", " · ") + " · Locked: " + profileNames[activeFilter].replace(" / ", " · ")
+          : profileNames[activeFilter].replace(" / ", " · "));
+      }
+
+      function downloadFinalImage() {
+        if (!isLive && !sourceImage) {
+          showToast("Start the camera or choose an image first.");
+          return;
+        }
+        if (isLive) renderFrame();
+        canvas.toBlob(blob => {
+          if (!blob) {
+            showToast("The image could not be prepared.");
+            return;
+          }
+          const link = document.createElement("a");
+          const date = new Date().toISOString().slice(0, 10);
+          link.href = URL.createObjectURL(blob);
+          link.download = "frame-lab-" + activeFilter + "-" + date + ".png";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+          showToast("Final image downloaded.");
+        }, "image/png");
+      }
+
+      function handleDirection(direction) {
+        if (direction === "up") moveVertical(-1);
+        if (direction === "down") moveVertical(1);
+        if (direction === "left") updateIntensity(Number(intensity.value) - 5, false);
+        if (direction === "right") updateIntensity(Number(intensity.value) + 5, false);
+      }
+
+      function readGamepad() {
+        const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+        const pad = connectedPadIndex !== null ? pads.find(item => item.index === connectedPadIndex) : pads[0];
+        if (pad) {
+          if (connectedPadIndex === null) connectedPadIndex = pad.index;
+          gamepadStatus.classList.add("connected");
+          gamepadStatus.querySelector("span:last-child").textContent = cameraStarted
+            ? (pad.id.replace(/\s*\([^)]*\)\s*/g, " ").trim().slice(0, 24) || "Gamepad connected")
+            : "Press left button to start";
+
+          const pressedButtons = pad.buttons.map(button => !!button.pressed);
+          const leftButtonPressed = !!pressedButtons[0] && !previousButtons[0];
+          const rightButtonPressed = !!pressedButtons[1] && !previousButtons[1];
+          if (!cameraStarted && !cameraStartPending && leftButtonPressed) {
+            startCamera();
+            previousButtons = pressedButtons;
+            requestAnimationFrame(readGamepad);
+            return;
+          }
+
+          if (cameraStarted && leftButtonPressed && verticalPosition === filterButtons.length) {
+            downloadFinalImage();
+          } else if (cameraStarted && leftButtonPressed) {
+            lockCurrentFilter();
+          } else if (cameraStarted && rightButtonPressed && isLive) {
+            capturePhoto();
+          }
+
+          const axisX = pad.axes[0] || 0;
+          const axisY = pad.axes[1] || 0;
+          const directions = {
+            left: axisX > .55 || !!pad.buttons[14]?.pressed,
+            right: axisX < -.55 || !!pad.buttons[15]?.pressed,
+            up: axisY > .55 || !!pad.buttons[12]?.pressed,
+            down: axisY < -.55 || !!pad.buttons[13]?.pressed
+          };
+          const now = performance.now();
+          for (const direction of ["up", "down", "left", "right"]) {
+            if (directions[direction] && (!previousDirections[direction] || now - lastNavAt > 260)) {
+              handleDirection(direction);
+              lastNavAt = now;
+              break;
+            }
+          }
+          previousDirections = directions;
+          previousButtons = pressedButtons;
+        } else {
+          connectedPadIndex = null;
+          previousButtons = [];
+          previousDirections = { up: false, down: false, left: false, right: false };
+          gamepadStatus.classList.remove("connected");
+          gamepadStatus.querySelector("span:last-child").textContent = "No gamepad detected";
+        }
+        requestAnimationFrame(readGamepad);
+      }
+
+      startCameraButton.addEventListener("click", startCamera);
+      captureButton.addEventListener("click", capturePhoto);
+      fileInput.addEventListener("change", event => loadFile(event.target.files[0]));
+      uploadButton.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          fileInput.click();
+        }
+      });
+      filterButtons.forEach(button => button.addEventListener("click", () => selectFilter(button)));
+      intensity.addEventListener("input", () => updateIntensity(Number(intensity.value), false));
+      downloadButton.addEventListener("click", downloadFinalImage);
+
+      window.addEventListener("gamepadconnected", event => {
+        connectedPadIndex = event.gamepad.index;
+        previousButtons = [];
+        showToast("Gamepad connected — press the left button to start.");
+      });
+      window.addEventListener("gamepaddisconnected", event => {
+        if (connectedPadIndex === event.gamepad.index) connectedPadIndex = null;
+        showToast("Gamepad disconnected.");
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) stream.getTracks().forEach(track => track.stop());
+      });
+
+      updateIntensity(Number(intensity.value), false);
+      requestAnimationFrame(readGamepad);
+    })();
+  </script>
+</body>
+</html>
