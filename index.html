@@ -1462,13 +1462,174 @@
         }));
       }
 
-      function addCurrentFrameToGallery() {
+      function roundedRectPath(context, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.lineTo(x + width - r, y);
+        context.quadraticCurveTo(x + width, y, x + width, y + r);
+        context.lineTo(x + width, y + height - r);
+        context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        context.lineTo(x + r, y + height);
+        context.quadraticCurveTo(x, y + height, x, y + height - r);
+        context.lineTo(x, y + r);
+        context.quadraticCurveTo(x, y, x + r, y);
+        context.closePath();
+      }
+
+      function fillRoundedRect(context, x, y, width, height, radius, fill) {
+        roundedRectPath(context, x, y, width, height, radius);
+        context.fillStyle = fill;
+        context.fill();
+      }
+
+      function drawPhotoCover(context, source, x, y, width, height, radius) {
+        const sourceRatio = source.width / source.height;
+        const targetRatio = width / height;
+        let sx = 0, sy = 0, sw = source.width, sh = source.height;
+        if (sourceRatio > targetRatio) {
+          sw = source.height * targetRatio;
+          sx = (source.width - sw) / 2;
+        } else {
+          sh = source.width / targetRatio;
+          sy = (source.height - sh) / 2;
+        }
+        context.save();
+        roundedRectPath(context, x, y, width, height, radius);
+        context.clip();
+        context.drawImage(source, sx, sy, sw, sh, x, y, width, height);
+        context.restore();
+      }
+
+      function drawExportLabel(context, text, x, y, color, size) {
+        context.fillStyle = color;
+        context.font = "900 " + size + "px ui-monospace, SFMono-Regular, Menlo, monospace";
+        context.textBaseline = "middle";
+        context.fillText(text, x, y);
+      }
+
+      function buildExportCanvas() {
+        const exportCanvas = document.createElement("canvas");
+        const exportCtx = exportCanvas.getContext("2d");
+        const profile = activeFilter;
+        const dimensions = profile === "iphone"
+          ? [900, 1600]
+          : profile === "nokia"
+            ? [900, 1450]
+            : profile === "kodak"
+              ? [1500, 1020]
+              : [1600, 1200];
+        exportCanvas.width = dimensions[0];
+        exportCanvas.height = dimensions[1];
+
+        const backdrop = exportCtx.createRadialGradient(
+          exportCanvas.width * .5, exportCanvas.height * .42, 40,
+          exportCanvas.width * .5, exportCanvas.height * .5, exportCanvas.width * .75
+        );
+        backdrop.addColorStop(0, "#252829");
+        backdrop.addColorStop(1, "#090a0b");
+        exportCtx.fillStyle = backdrop;
+        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+        if (profile === "canon" || profile === "sony") {
+          const isSony = profile === "sony";
+          exportCtx.shadowColor = "rgba(0,0,0,.65)";
+          exportCtx.shadowBlur = 55;
+          exportCtx.shadowOffsetY = 28;
+          fillRoundedRect(exportCtx, 75, 190, 1450, 920, 125, isSony ? "#15191b" : "#1b1d1e");
+          exportCtx.shadowColor = "transparent";
+          fillRoundedRect(exportCtx, isSony ? 650 : 560, 95, isSony ? 390 : 480, 180, 40, isSony ? "#202528" : "#282b2c");
+          fillRoundedRect(exportCtx, 260, 330, 1080, 650, 28, "#050606");
+          exportCtx.strokeStyle = isSony ? "#587386" : "#555958";
+          exportCtx.lineWidth = 6;
+          roundedRectPath(exportCtx, 260, 330, 1080, 650, 28);
+          exportCtx.stroke();
+          drawPhotoCover(exportCtx, canvas, 280, 350, 1040, 610, 16);
+          drawExportLabel(exportCtx, isSony ? "SONY α" : "CANON DSLR", 155, 270, isSony ? "#dce8ef" : "#f1eee6", 34);
+          for (let i = 0; i < 6; i++) {
+            exportCtx.beginPath();
+            exportCtx.arc(1190 + i * 45, 270, 14, 0, Math.PI * 2);
+            exportCtx.fillStyle = i === 0 ? (isSony ? "#315f78" : "#8e3b31") : "#0f1112";
+            exportCtx.fill();
+            exportCtx.strokeStyle = "#5a5e5d";
+            exportCtx.lineWidth = 3;
+            exportCtx.stroke();
+          }
+          drawExportLabel(exportCtx, Math.round(Number(intensity.value)) + "% PROFILE", 1260, 1050, "#9ea19d", 20);
+        } else if (profile === "iphone") {
+          exportCtx.shadowColor = "rgba(0,0,0,.7)";
+          exportCtx.shadowBlur = 55;
+          exportCtx.shadowOffsetY = 25;
+          fillRoundedRect(exportCtx, 150, 25, 600, 1550, 110, "#9f9187");
+          exportCtx.shadowColor = "transparent";
+          fillRoundedRect(exportCtx, 166, 41, 568, 1518, 98, "#08090a");
+          drawPhotoCover(exportCtx, canvas, 180, 55, 540, 1490, 86);
+          fillRoundedRect(exportCtx, 342, 78, 216, 54, 28, "#050506");
+          exportCtx.beginPath();
+          exportCtx.arc(522, 105, 9, 0, Math.PI * 2);
+          exportCtx.fillStyle = "#172732";
+          exportCtx.fill();
+          drawExportLabel(exportCtx, "IPHONE VINTAGE", 315, 1500, "#f5f0eb", 21);
+          fillRoundedRect(exportCtx, 348, 1524, 204, 8, 4, "rgba(255,255,255,.78)");
+        } else if (profile === "nokia") {
+          exportCtx.shadowColor = "rgba(0,0,0,.72)";
+          exportCtx.shadowBlur = 55;
+          exportCtx.shadowOffsetY = 28;
+          fillRoundedRect(exportCtx, 125, 25, 650, 1390, 145, "#174653");
+          exportCtx.shadowColor = "transparent";
+          exportCtx.strokeStyle = "#57918e";
+          exportCtx.lineWidth = 10;
+          roundedRectPath(exportCtx, 125, 25, 650, 1390, 145);
+          exportCtx.stroke();
+          fillRoundedRect(exportCtx, 355, 88, 190, 20, 10, "#07171c");
+          drawExportLabel(exportCtx, "NOKIA", 360, 150, "#b9ddd2", 34);
+          fillRoundedRect(exportCtx, 205, 205, 490, 610, 34, "#0b2026");
+          exportCtx.strokeStyle = "#69a398";
+          exportCtx.lineWidth = 8;
+          roundedRectPath(exportCtx, 205, 205, 490, 610, 34);
+          exportCtx.stroke();
+          drawPhotoCover(exportCtx, canvas, 225, 225, 450, 570, 20);
+          const keyWidth = 126, keyHeight = 74;
+          for (let row = 0; row < 4; row++) {
+            for (let column = 0; column < 3; column++) {
+              const x = 225 + column * 150;
+              const y = 900 + row * 100;
+              const keyGradient = exportCtx.createLinearGradient(0, y, 0, y + keyHeight);
+              keyGradient.addColorStop(0, "#d8e0d2");
+              keyGradient.addColorStop(1, "#718a83");
+              fillRoundedRect(exportCtx, x, y, keyWidth, keyHeight, 34, keyGradient);
+              const labels = [["1","2","3"],["4","5","6"],["7","8","9"],["*","0","#"]];
+              drawExportLabel(exportCtx, labels[row][column], x + 54, y + 39, "#19323a", 25);
+            }
+          }
+        } else {
+          exportCtx.shadowColor = "rgba(0,0,0,.68)";
+          exportCtx.shadowBlur = 48;
+          exportCtx.shadowOffsetY = 24;
+          fillRoundedRect(exportCtx, 60, 90, 1380, 840, 90, "#241e16");
+          exportCtx.shadowColor = "transparent";
+          exportCtx.fillStyle = "#be2823";
+          exportCtx.fillRect(60, 90, 1380, 135);
+          exportCtx.fillStyle = "#e2b63f";
+          exportCtx.fillRect(60, 225, 1380, 145);
+          fillRoundedRect(exportCtx, 105, 150, 235, 190, 22, "#10120f");
+          fillRoundedRect(exportCtx, 130, 175, 185, 140, 12, "#87a297");
+          fillRoundedRect(exportCtx, 360, 275, 920, 560, 18, "#0b0907");
+          drawPhotoCover(exportCtx, canvas, 385, 300, 870, 510, 8);
+          drawExportLabel(exportCtx, "KODAK FILM", 430, 190, "#211509", 40);
+          drawExportLabel(exportCtx, "GOLDEN · GRAIN · SOFT", 965, 875, "#d5b56c", 20);
+        }
+
+        return exportCanvas;
+      }
+
+      function addCurrentFrameToGallery(exportCanvas) {
         const thumbnail = document.createElement("canvas");
         const targetWidth = 420;
-        const targetHeight = Math.max(1, Math.round(targetWidth * canvas.height / canvas.width));
+        const targetHeight = Math.max(1, Math.round(targetWidth * exportCanvas.height / exportCanvas.width));
         thumbnail.width = targetWidth;
         thumbnail.height = targetHeight;
-        thumbnail.getContext("2d").drawImage(canvas, 0, 0, targetWidth, targetHeight);
+        thumbnail.getContext("2d").drawImage(exportCanvas, 0, 0, targetWidth, targetHeight);
         const item = {
           image: thumbnail.toDataURL("image/jpeg", .78),
           profile: profileNames[activeFilter].replace(" / ", " · "),
@@ -1546,7 +1707,8 @@
           return;
         }
         if (isLive) renderFrame();
-        canvas.toBlob(blob => {
+        const finishedCanvas = buildExportCanvas();
+        finishedCanvas.toBlob(blob => {
           if (!blob) {
             showToast("The image could not be prepared.");
             return;
@@ -1559,7 +1721,7 @@
           link.click();
           link.remove();
           setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-          addCurrentFrameToGallery();
+          addCurrentFrameToGallery(finishedCanvas);
           galleryGrid.scrollIntoView({ behavior: "smooth", block: "nearest" });
           showToast("Downloaded and added to your gallery.");
         }, "image/png");
